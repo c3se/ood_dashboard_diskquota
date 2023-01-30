@@ -13,13 +13,24 @@ requires `getfattr` (from the `attr`-package in EL8) to read statistics from
 CephFS as well as modification of the dashboard application itself.
 
 ## Install
+```
+$ git clone https://github.com/c3se/ood_dashboard_diskquota.git
+```
 The dasboard app needs to do slight modification to the dashboard app and new
 files must be added to
 `ondemand/apps/dashboard/app/{models,views,controllers}/`.
 
+Update `/var/www/ood/apps/sys/dashboard/config/routes.rb`:
 ```
-$ git clone https://github.com/c3se/ood_dashboard_diskquota.git
+  if Configuration.can_access_files?
+  [...]
++   get "diskquota", to: "disk_quota#index"
+  [...]
+  end
 ```
+
+Place the files inside `models`, `views` and `controllers` into the respective
+`/var/www/ood/apps/sys/dashboard/app/{models,views,controllers}`.
 
 ## Customizations
 You can customize the app by changing the ERB-files inside `views`.

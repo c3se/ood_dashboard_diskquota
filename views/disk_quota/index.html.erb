@@ -1,0 +1,53 @@
+<!--
+  DiskQuota ERB template
+  Expectes res_list (a list) of quota objects.
+-->
+<table class = "table table-striped table-condensed dataTable no-footer">
+  <tr>
+    <th>Path</th>
+    <th>Type</th>
+    <th>Usage</th>
+    <th>Limit</th>
+  </tr>
+<% @res_list.each do |res| %>
+  <tr>
+    <td>
+      <i id="" class="fas <%= res["title"].include?('Home') ? 'fa-home' : 'fa-folder' %>" style="font-size: 1rem" aria-hidden="true"></i>
+      <a title="<%= res["title"] %>" style="color: inherit; text-decoration: none !important" href="/pun/sys/dashboard/files/fs<%= res["path"] %>">
+        <%= res.key?("title") ? res["title"] : res["path"] %>
+      </a>
+    </td>
+    <td title="Storage quota is measured in GiB">Storage</td>
+    <td title = "Your usage is <%= (res["usage_bytes"].to_f/(1024**3)).round(1) %> GiB">
+    <% if res["usage_bytes"].to_f > 0.9*res["limit_bytes"].to_f %>
+    <i title="Warning! You are within 90% of your GiB quota limit." class="fa fa-warning" style="font-size: 1.25rem; color: red" aria-hidden="true"></i>
+    <% elsif res["usage_bytes"].to_f > 0.8*res["limit_bytes"].to_f %>
+    <i title="Warning! You are within 80% of your GiB quota limit." class="fa fa-warning" style="font-size: 1.25rem; color: #f2a60c" aria-hidden="true"></i>
+    <% end %>
+    <%= (res["usage_bytes"].to_f/(1024**3)).round(1) %> GiB
+    </td>
+    <td title ="Your limit is <%= res["limit_bytes"].to_f/(1024**3) %> GiB"><%= res["limit_bytes"].to_f/(1024**3) %> GiB</td>
+  </tr>
+  <% if res.key?("usage_files") %>
+  <tr>
+    <td>
+      <i id="" class="fas <%= res["title"].include?('Home') ? 'fa-home' : 'fa-folder' %>" style="font-size: 1rem" aria-hidden="true"></i>
+      <a title="<%= res["title"] %>" style="color: inherit; text-decoration: none !important" href="/pun/sys/dashboard/files/fs<%= res["path"] %>">
+        <%= res.key?("title") ? res["title"] : res["path"] %>
+      </a>
+    </td>
+    <td title="File quota is measured in number of files">Files</td>
+    <td title = "You have <%= res["usage_files"] %> files">
+    <% if res["usage_files"].to_f > 0.9*res["limit_files"].to_f %>
+    <i title="Warning! You are within 90% of your file quota limit." class="fa fa-warning" style="font-size: 1.25rem; color: red" aria-hidden="true"></i>
+    <% elsif res["usage_files"].to_f > 0.8*res["limit_files"].to_f %>
+    <i title="Warning! You are within 80% of your file quota limit." class="fa fa-warning" style="font-size: 1.25rem; color: #f2a60c" aria-hidden="true"></i>
+    <% end %>
+    <%= res["usage_files"] %>
+    </td>
+    <td title = "Your limit is <%= res["limit_files"] %> files"><%= res["limit_files"] %></td>
+  </tr>
+  <% end %>
+<% end %>
+</table>
+<p>Please see <a href = "https://www.c3se.chalmers.se/documentation/filesystem/">storage resources at Chalmers website</a> for more information.</p>
