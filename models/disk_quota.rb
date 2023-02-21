@@ -26,7 +26,6 @@ class DiskQuota
   def weka_quota(user)
     groups = Etc.enum_for(:group).select{|group| group.mem.include?(user)}
     group_names_wo_pg = groups.map{|group| group.name.sub(/pg_/, "")}
-    puts group_names_wo_pg
     mimer_quota_file = File.read("/mimer/NOBACKUP/groups/.quota.json")
     quota_json = JSON.parse(mimer_quota_file)
     #my_mimer_details = group_names_wo_pg.select{|group| quota_json.key=}.map{|group| quota_json["/" + group]}
