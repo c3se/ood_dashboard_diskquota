@@ -1,0 +1,7 @@
+---
+name: Check my quota
+category: Files
+description: Check my disk usage in number of files and bytes
+icon: fa://cog
+url: diskquota
+new_window: false
