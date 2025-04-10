@@ -1,6 +1,9 @@
 require "open3"
 require "etc"
 require "json"
+require "uri"
+require "openssl"
+require "net/http"
 class DiskQuota
   def initialize()
   end
@@ -16,22 +19,40 @@ class DiskQuota
 
   def unwekaify(wekadetail)
     return {
-      "path" => "/mimer/NOBACKUP/groups/" + wekadetail["path"].sub(/\//, ""),
-      "title" => "/mimer/NOBACKUP/groups/" + wekadetail["path"].sub(/\//, ""),
       "usage_bytes" => wekadetail["total_bytes"].to_s,
       "limit_bytes" => wekadetail["hard_limit_bytes"].to_s
     }
   end
 
-  def weka_quota(user)
-    groups = Etc.enum_for(:group).select{|group| group.mem.include?(user)}
-    group_names_wo_pg = groups.map{|group| group.name.sub(/pg_/, "")}
-    mimer_quota_file = File.read("/mimer/NOBACKUP/groups/.quota.json")
-    quota_json = JSON.parse(mimer_quota_file)
-    #my_mimer_details = group_names_wo_pg.select{|group| quota_json.key=}.map{|group| quota_json["/" + group]}
-    my_mimer_details = group_names_wo_pg.filter_map{|group| quota_json["/" + group] if quota_json.key?("/" + group)}
-    my_storage_details = my_mimer_details.map{|mdetail| unwekaify(mdetail)}
-    [my_storage_details, ""]
+  def weka_quota(path)
+    weka_url = "https://10.43.40.201:14000/api/v2"
+    weka_api_token_file = "/mimer/NOBACKUP/groups/.quota.key"
+    weka_api_token = JSON.parse(File.read(weka_api_token_file))
+    weka_fs_uuid = 'b3714662-79c0-a799-2738-f292e25c4521'
+
+    # Get quota from Weka API
+    inode_id = File.lstat(path).ino
+    url = "#{weka_url}/filesystems/#{weka_fs_uuid}/quota/#{inode_id}"
+    uri = URI(url)
+    request = Net::HTTP::Get.new(uri)
+    request['Authorization'] = "Bearer #{weka_api_token}"
+    request['Accept'] = 'application/json'
+
+    # Perform HTTP request
+    response = Net::HTTP.start(uri.hostname, uri.port, verify_mode: OpenSSL::SSL::VERIFY_NONE) do |http|
+      http.request(request)
+    end
+
+    # Handle response
+    res, error = {}, nil
+    if response.code.to_i == 200
+      data = JSON.parse(response.body)['data']
+      res.store('total_bytes', data['used_bytes'])
+      res.store('hard_limit_bytes', data['hard_limit_bytes'])
+    elsif JSON.parse(response.body)['message'] != 'Directory has no quota'
+      raise "Error: #{response.body}"
+    end
+    [res, error]
   end
 
   def ceph_quota(path)
@@ -61,7 +82,7 @@ class DiskQuota
     Dir.foreach(path) do |dirname|
       next if dirname == '.' or dirname == '..'
       dir = File.stat("#{path}/#{dirname}")
-      if group_gids.include?(dir.gid)
+      if dir.directory? and group_gids.include?(dir.gid)
         dirs.append(path + "/" + dirname)
       end
     end
@@ -97,11 +118,19 @@ class DiskQuota
     end
 
     # Mimer nobackup
-    weka, error = weka_quota(user)
-    weka.each do | wq |
-      wq.store("debug", "")
-      res_list.append(wq)
+    mimer_nobackup_dirs = get_group_owned_subdirs(user, "/mimer/NOBACKUP/groups")
+    mimer_nobackup_dirs.each do |dir|
+      wekadetails, err = weka_quota(dir)
+      if wekadetails.empty?
+        next
+      end
+      quota = unwekaify(wekadetails)
+      quota.store("path", dir)
+      quota.store("title", dir)
+      res_list.append(quota)
     end
+
     return res_list
   end
 end
+
